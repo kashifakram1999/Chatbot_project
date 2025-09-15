@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0F1115;          /* ink-900 */
+  --card: #151821;        /* ink-800 */
+  --border: #2E3446;      /* steel-700 */
+  --text: #EDE5CE;        /* parchment-200 */
+  --muted: #8A91A6;       /* steel-300 */
+  --accent: #D9A441;      /* amber-500 */
+}
+
+html, body, #__next { height: 100%; }
+
+body {
+  @apply bg-bg text-text antialiased;
+  background-image: theme(backgroundImage.bronns-sheen);
+  background-attachment: fixed;
+}
+
+.hr-muted { @apply border-t border-[var(--border)]; }
+.card {
+  @apply bg-card backdrop-blur border border-[var(--border)] rounded-2xl shadow-soft;
+}
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium transition;
+}
+.btn-primary { @apply bg-[var(--accent)] text-ink-900 hover:opacity-90; }
+.btn-ghost  { @apply bg-transparent text-text hover:bg-card; }
+.input {
+  @apply w-full rounded-xl bg-ink-700 border border-[var(--border)] px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:shadow-ring;
+}
+.badge {
+  @apply inline-flex items-center rounded-lg border border-[var(--border)] px-2 py-0.5 text-xs text-muted;
+}
+
+/* Focus styles for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Slight gradient and vignette to the page background */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 20rem at 50% -4rem, rgba(217,164,65,.08), transparent 60%),
+    radial-gradient(36rem 16rem at -10% 110%, rgba(217,164,65,.06), transparent 60%),
+    radial-gradient(36rem 16rem at 110% 110%, rgba(217,164,65,.06), transparent 60%);
+}
+
+@layer components {
+  .icon-btn {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-lg
+           border border-[var(--border)] bg-ink-700/60 hover:bg-ink-700/80
+           transition;
+  }
+}
