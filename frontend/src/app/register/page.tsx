@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import RedirectIfAuthed from "@/components/auth/RedirectIfAuthed";
 import AuthCard from "@/components/AuthCard";
 import { Input, PasswordInput } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -91,6 +92,8 @@ export default function RegisterPage() {
   }
 
   return (
+    <>
+    <RedirectIfAuthed />
     <AuthCard title="Create your account" subtitle="Join and start chatting">
       {error && (
         <div className="mb-3 rounded-lg border border-blood-500/60 bg-blood-500/10 px-3 py-2 text-sm">
@@ -164,5 +167,6 @@ export default function RegisterPage() {
         </a>
       </p>
     </AuthCard>
+    </>
   );
 }

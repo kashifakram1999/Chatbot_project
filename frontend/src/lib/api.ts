@@ -1,66 +1,65 @@
-import { authHeaders } from "./auth";
+import { fetchAuth } from "./auth";
 
-const RAW_API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
-const _base = RAW_API.replace(/\/+$/, "");
-const API = _base.endsWith("/api") ? _base : `${_base}/api`;
+const API = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
 
-// ---- Conversations ----
-
-export async function getOrCreateConversation(
-  character = "Bronn"
-): Promise<{ id: string }> {
-  // Try latest existing conversation for now (you can add proper list/choose later)
-  const list = await fetch(`${API}/conversations`, { headers: authHeaders() });
-  if (!list.ok) throw new Error("Failed to list conversations");
-  const page = await list.json();
+// Conversations
+export async function getOrCreateConversation(character = "Bronn"): Promise<{ id: string }> {
+  // list
+  let r = await fetchAuth(`${API}/conversations`, { method: "GET" });
+  if (!r.ok) throw new Error("Failed to list conversations");
+  const page = await r.json();
   if (page?.results?.length) return { id: page.results[0].id };
 
-  const r = await fetch(`${API}/conversations`, {
+  // create
+  r = await fetchAuth(`${API}/conversations`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ character }),
   });
   if (!r.ok) throw new Error("Failed to create conversation");
   return await r.json();
 }
 
-export async function createUserMessage(
-  conversationId: string,
-  content: string
-) {
-  const r = await fetch(
-    `${API}/conversations/${conversationId}/messages/create`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ content }),
-    }
-  );
+export async function createUserMessage(conversationId: string, content: string) {
+  const r = await fetchAuth(`${API}/conversations/${conversationId}/messages/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
   if (!r.ok) throw new Error("Failed to create user message");
-  return await r.json(); // {id, role, content, ...}
+  return await r.json();
 }
 
-// ---- Streaming (SSE) ----
-// Backend emits:
-//  event: start   data: {"message_id": "<uuid>", "ts": ...}
-//  event: token   data: {"delta": "..."}
-//  event: end     data: {"ts": ...}
+// SSE stream: we still open with current token; if it 401s up-front, fetchAuth will refresh & retry.
+// (If the token expires mid-stream, the connection will drop; user can hit regenerate.)
 export async function streamReply(
   conversationId: string,
   prompt: string,
   onChunk: (text: string) => void,
   onStart?: (messageId: string) => void,
-  onEnd?: () => void
+  onEnd?: () => void,
 ) {
-  const res = await fetch(`${API}/chat/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({
-      conversation_id: conversationId,
-      prompt,
-      create_user_message: false,
-    }),
-  });
+  // We can’t (easily) reuse fetchAuth streaming because we need the Response.body reader.
+  // So we do a manual refresh-once here.
+  const open = async (): Promise<Response> => {
+    return await fetch(`${API}/chat/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await getAuthHeader()),
+      },
+      body: JSON.stringify({ conversation_id: conversationId, prompt, create_user_message: false }),
+    });
+  };
+
+  let res = await open();
+  if (res.status === 401) {
+    // try refresh once
+    const { refreshAccessToken } = await import("./auth");
+    const ok = await refreshAccessToken();
+    if (!ok) throw new Error("Unauthorized");
+    res = await open();
+  }
   if (!res.ok || !res.body) throw new Error("Failed to open stream");
 
   const reader = res.body.getReader();
@@ -68,7 +67,6 @@ export async function streamReply(
   let buf = "";
 
   const flush = (block: string) => {
-    // multiple SSE events may be in a block
     const events = block.split("\n\n").filter(Boolean);
     for (const raw of events) {
       const lines = raw.split("\n");
@@ -99,4 +97,10 @@ export async function streamReply(
     for (const p of parts) flush(p);
   }
   if (buf) flush(buf);
+}
+
+async function getAuthHeader(): Promise<Record<string, string>> {
+  const { getAccessToken } = await import("./auth");
+  const t = getAccessToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
 }

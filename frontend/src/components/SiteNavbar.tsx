@@ -8,8 +8,7 @@ export default function SiteNavbar() {
 
   useEffect(() => {
     try {
-      const has =
-        !!localStorage.getItem("access") || !!localStorage.getItem("jwt");
+      const has = !!localStorage.getItem("access") || !!localStorage.getItem("jwt");
       setAuthed(has);
     } catch {
       setAuthed(false);
@@ -24,21 +23,13 @@ export default function SiteNavbar() {
         </a>
 
         {authed === null ? (
-          // While loading (hydration), render nothing to avoid mismatch
           <div />
         ) : authed ? (
-          <AuthNav /> // shows Chat + Logout
+          <AuthNav />  
         ) : (
           <div className="flex items-center gap-2">
-            <a href="/chat" className="badge hover:opacity-90">
-              Chat
-            </a>
-            <a href="/login" className="badge hover:opacity-90">
-              Sign in
-            </a>
-            <a href="/register" className="badge hover:opacity-90">
-              Create account
-            </a>
+            <a href="/login" className="badge hover:opacity-90">Sign in</a>
+            <a href="/register" className="badge hover:opacity-90">Create account</a>
           </div>
         )}
       </div>
