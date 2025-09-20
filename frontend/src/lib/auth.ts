@@ -1,114 +1,85 @@
-const API = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
-const ACCESS_KEY = "access";
-const REFRESH_KEY = "refresh";
+// src/lib/auth.ts
+const API = ""; // use same-origin Next API
 
-export function getAccessToken() {
-  try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; }
-}
-export function getRefreshToken() {
-  try { return localStorage.getItem(REFRESH_KEY) || ""; } catch { return ""; }
-}
-export function setTokens({ access, refresh }: { access: string; refresh?: string }) {
+/** ---- Server/session helpers (used by server components & API routes) ---- **/
+export type SessionUser = { sub: string; email?: string; name?: string; role?: string };
+
+function parseJwtUnsafe(t?: string): any | null {
+  if (!t) return null;
   try {
-    if (access) localStorage.setItem(ACCESS_KEY, access);
-    if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
-  } catch {}
+    const [, p] = t.split(".");
+    return JSON.parse(Buffer.from(p, "base64").toString("utf8"));
+  } catch { return null; }
 }
-export function clearTokens() {
+
+// Server components should hit /api/me (same-origin, cookies included)
+export async function getServerUser(): Promise<SessionUser | null> {
   try {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-  } catch {}
+    const r = await fetch(`${API}/api/me`, { cache: "no-store" });
+    if (!r.ok) return null;
+    const { user } = await r.json();
+    return user || null;
+  } catch { return null; }
 }
 
-export function authHeaders(extra?: HeadersInit): HeadersInit {
-  const token = getAccessToken();
-  return { Authorization: token ? `Bearer ${token}` : "", ...(extra || {}) };
-}
+/** ---- Client-side auth actions now call Next API which sets httpOnly cookies ---- **/
 
-// --- Email/password
+// Email/password
 export async function login(email: string, password: string) {
-  const r = await fetch(`${API}/auth/login`, {
+  const r = await fetch(`/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ email, password }),
   });
   if (!r.ok) throw new Error((await safeJson(r))?.detail || "Login failed");
-  const data = await r.json(); // { access, refresh, user }
-  setTokens(data);
-  return data;
+  return await r.json(); // { user? ... } as returned by Django/proxy
 }
 
-// --- Register
+// Register
 export async function register(email: string, password: string) {
-  const r = await fetch(`${API}/auth/register`, {
+  const r = await fetch(`/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ email, password }),
   });
   if (!r.ok) throw new Error((await safeJson(r))?.detail || "Registration failed");
-  const data = await r.json();
-  setTokens(data);
-  return data;
+  return await r.json();
 }
 
-// --- Google
+// Google
 export async function loginWithGoogle(idToken: string) {
-  const r = await fetch(`${API}/auth/google`, {
+  const r = await fetch(`/api/auth/google`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ id_token: idToken }),
   });
   if (!r.ok) throw new Error((await safeJson(r))?.detail || `Google login failed (${r.status})`);
-  const data = await r.json(); // { access, refresh, user }
-  setTokens(data);
-  return data;
+  return await r.json();
 }
 
-// --- Refresh
-export async function refreshAccessToken(): Promise<string | null> {
-  const refresh = getRefreshToken();
-  if (!refresh) return null;
-  const r = await fetch(`${API}/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh }),
-  });
-  if (!r.ok) return null;
-  const data = await r.json(); // { access }
-  if (data?.access) {
-    setTokens({ access: data.access });
-    return data.access;
-  }
-  return null;
+// Optional refresh (if you use refresh cookie server-side)
+export async function refreshAccessToken(): Promise<boolean> {
+  const r = await fetch(`/api/auth/refresh`, { method: "POST", credentials: "include" });
+  return r.ok;
 }
 
-// --- Fetch with auto-refresh-once
+/** ---- Generic fetch wrapper: rely on cookies (no Authorization header) ---- **/
 export async function fetchAuth(input: RequestInfo | URL, init: RequestInit = {}, retry = true): Promise<Response> {
   const withAuth: RequestInit = {
     ...init,
-    headers: authHeaders(init.headers),
-    credentials: init.credentials ?? "include", // harmless if unused
+    credentials: init.credentials ?? "include", // send cookies
   };
   let res = await fetch(input, withAuth);
   if (res.status !== 401) return res;
 
-  // Try to refresh once
   if (!retry) return res;
-  const newAccess = await refreshAccessToken();
-  if (!newAccess) return res;
+  const ok = await refreshAccessToken();
+  if (!ok) return res;
 
-  const retryInit: RequestInit = {
-    ...init,
-    headers: { ...(init.headers || {}), Authorization: `Bearer ${newAccess}` },
-    credentials: init.credentials ?? "include",
-  };
-  res = await fetch(input, retryInit);
-  // If still 401 -> clear and bounce to login (optional)
-  if (res.status === 401) {
-    clearTokens();
-  }
-  return res;
+  return fetch(input, withAuth);
 }
 
 async function safeJson(r: Response) {

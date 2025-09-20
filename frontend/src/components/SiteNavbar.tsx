@@ -1,19 +1,19 @@
 "use client";
-
 import AuthNav from "./auth/AuthNav";
 import { useEffect, useState } from "react";
 
-export default function SiteNavbar() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+export default function SiteNavbar({ user: _serverUser }: { user?: any } = {}) {
+  const [authed, setAuthed] = useState<boolean | null>(_serverUser ? true : null);
 
   useEffect(() => {
-    try {
-      const has = !!localStorage.getItem("access") || !!localStorage.getItem("jwt");
-      setAuthed(has);
-    } catch {
-      setAuthed(false);
-    }
-  }, []);
+    if (_serverUser) { setAuthed(true); return; }
+    let mounted = true;
+    fetch("/api/me", { credentials: "include" })
+      .then(r => r.ok ? r.json() : { user: null })
+      .then(j => { if (!mounted) return; setAuthed(!!j.user); })
+      .catch(() => { if (!mounted) return; setAuthed(false); });
+    return () => { mounted = false; };
+  }, [_serverUser]);
 
   return (
     <nav className="sticky top-0 z-50 backdrop-blur border-b border-[var(--border)]/70 bg-card/75">
@@ -21,11 +21,10 @@ export default function SiteNavbar() {
         <a href="/" className="font-semibold tracking-wide">
           Bronn <span className="text-[var(--accent)]">Chat</span>
         </a>
-
         {authed === null ? (
           <div />
         ) : authed ? (
-          <AuthNav />  
+          <AuthNav />
         ) : (
           <div className="flex items-center gap-2">
             <a href="/login" className="badge hover:opacity-90">Sign in</a>
