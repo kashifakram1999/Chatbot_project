@@ -1,17 +1,18 @@
+// src/lib/api.ts
 import { fetchAuth } from "./auth";
 
-const API = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
+// We call our Next proxies so cookies -> Authorization happens server-side.
+const API_DJ = "/api/dj";
 
-// Conversations
 export async function getOrCreateConversation(character = "Bronn"): Promise<{ id: string }> {
-  // list
-  let r = await fetchAuth(`${API}/conversations`, { method: "GET" });
+  // list existing
+  let r = await fetchAuth(`${API_DJ}/conversations`, { method: "GET" });
   if (!r.ok) throw new Error("Failed to list conversations");
   const page = await r.json();
   if (page?.results?.length) return { id: page.results[0].id };
 
-  // create
-  r = await fetchAuth(`${API}/conversations`, {
+  // create new
+  r = await fetchAuth(`${API_DJ}/conversations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ character }),
@@ -21,7 +22,7 @@ export async function getOrCreateConversation(character = "Bronn"): Promise<{ id
 }
 
 export async function createUserMessage(conversationId: string, content: string) {
-  const r = await fetchAuth(`${API}/conversations/${conversationId}/messages/create`, {
+  const r = await fetchAuth(`${API_DJ}/conversations/${conversationId}/messages/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
@@ -30,8 +31,7 @@ export async function createUserMessage(conversationId: string, content: string)
   return await r.json();
 }
 
-// SSE stream: we still open with current token; if it 401s up-front, fetchAuth will refresh & retry.
-// (If the token expires mid-stream, the connection will drop; user can hit regenerate.)
+// Streaming reply uses our Next streaming proxy /api/chat
 export async function streamReply(
   conversationId: string,
   prompt: string,
@@ -39,27 +39,12 @@ export async function streamReply(
   onStart?: (messageId: string) => void,
   onEnd?: () => void,
 ) {
-  // We can’t (easily) reuse fetchAuth streaming because we need the Response.body reader.
-  // So we do a manual refresh-once here.
-  const open = async (): Promise<Response> => {
-    return await fetch(`${API}/chat/stream`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(await getAuthHeader()),
-      },
-      body: JSON.stringify({ conversation_id: conversationId, prompt, create_user_message: false }),
-    });
-  };
-
-  let res = await open();
-  if (res.status === 401) {
-    // try refresh once
-    const { refreshAccessToken } = await import("./auth");
-    const ok = await refreshAccessToken();
-    if (!ok) throw new Error("Unauthorized");
-    res = await open();
-  }
+  const res = await fetch(`/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ conversation_id: conversationId, prompt, create_user_message: false }),
+  });
   if (!res.ok || !res.body) throw new Error("Failed to open stream");
 
   const reader = res.body.getReader();
@@ -99,8 +84,20 @@ export async function streamReply(
   if (buf) flush(buf);
 }
 
-async function getAuthHeader(): Promise<Record<string, string>> {
-  const { getAccessToken } = await import("./auth");
-  const t = getAccessToken();
-  return t ? { Authorization: `Bearer ${t}` } : {};
+// list existing messages for a conversation (adjust the shape if your API differs)
+export async function listMessages(conversationId: string): Promise<Array<{ id: string; role: "user"|"assistant"; content: string }>> {
+  const r = await fetchAuth(`/api/dj/conversations/${conversationId}/messages`, { method: "GET" });
+  if (!r.ok) {
+    // If your backend doesn't have this endpoint yet, just return empty; the UI still works.
+    return [];
+  }
+  const data = await r.json();
+  // Expected either { results: [...] } or an array
+  const arr = Array.isArray(data) ? data : (data?.results ?? []);
+  // Map to the Msg shape used by the Chat UI
+  return arr.map((m: any) => ({
+    id: m.id ?? crypto.randomUUID(),
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: String(m.content ?? ""),
+  }));
 }

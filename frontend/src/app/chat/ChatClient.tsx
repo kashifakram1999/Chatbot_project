@@ -6,69 +6,47 @@ import { Section } from "@/components/ui/Section";
 import ChatMessage from "@/components/Chat/ChatMessage";
 import ChatComposer from "@/components/Chat/ChatComposer";
 import RightPanel from "@/components/Chat/RightPanel";
-import {
-  CopyBtn,
-  EditBtn,
-  DeleteBtn,
-  RegenerateBtn,
-} from "@/components/Chat/MessageActions";
-import {
-  getOrCreateConversation,
-  createUserMessage,
-  streamReply,
-} from "@/lib/api";
+import { CopyBtn, EditBtn, DeleteBtn, RegenerateBtn } from "@/components/Chat/MessageActions";
+import { getOrCreateConversation, createUserMessage, streamReply, listMessages } from "@/lib/api";
 
 type Role = "user" | "assistant";
 type Msg = { id: string; role: Role; content: string };
 
-const STORAGE_KEY = "bronn_chat_v1";
+// once-only cleanup to delete old localStorage key, in case it's there from a prior build
+const LEGACY_STORAGE_KEY = "bronn_chat_v1";
 
 export default function ChatClient() {
-  const [conversationId, setConversationId] = React.useState<string | null>(
-    null
-  );
-  const [messages, setMessages] = React.useState<Msg[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw
-        ? (JSON.parse(raw) as Msg[])
-        : [
-            {
-              id: "seed-hello",
-              role: "assistant",
-              content:
-                "A sellsword’s wit is worth as much as his sword. How can I help?",
-            },
-          ];
-    } catch {
-      return [];
-    }
-  });
+  const [conversationId, setConversationId] = React.useState<string | null>(null);
+  const [messages, setMessages] = React.useState<Msg[]>([
+    {
+      id: "seed-hello",
+      role: "assistant",
+      content: "A sellsword’s wit is worth as much as his sword. How can I help?",
+    },
+  ]);
   const [busy, setBusy] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 
-  // Persist to localStorage
+  // one-time: purge legacy localStorage persistence
   React.useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-    } catch {}
-  }, [messages]);
+    try { localStorage.removeItem(LEGACY_STORAGE_KEY); } catch {}
+  }, []);
 
   // Auto-scroll on new messages
   React.useEffect(() => {
-    listRef.current?.scrollTo({
-      top: listRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, busy]);
 
-  // Ensure we have a conversation (defaults to character "Bronn" on the server)
+  // Ensure conversation exists and hydrate from server if possible
   React.useEffect(() => {
     (async () => {
       const conv = await getOrCreateConversation("Bronn");
       setConversationId(conv.id);
+
+      // try to load history from backend; if endpoint doesn't exist, this returns []
+      const history = await listMessages(conv.id).catch(() => []);
+      if (history.length) setMessages(history);
     })().catch((e) => console.error(e));
   }, []);
 
@@ -77,10 +55,10 @@ export default function ChatClient() {
   async function handleSend(text: string) {
     if (!conversationId) return;
 
-    // 1) Persist the user message server-side (no duplication)
+    // Persist user message on server (source of truth)
     await createUserMessage(conversationId, text);
 
-    // 2) Add the user + placeholder assistant locally
+    // Add user + placeholder assistant locally
     const userId = crypto.randomUUID();
     const asstId = crypto.randomUUID();
 
@@ -91,17 +69,15 @@ export default function ChatClient() {
     ]);
     setBusy(true);
 
-    // 3) Stream assistant tokens into the SAME assistant bubble
+    // Stream reply into the same assistant bubble
     await streamReply(
       conversationId,
       text,
       (delta) =>
         setMessages((m) =>
-          m.map((x) =>
-            x.id === asstId ? { ...x, content: x.content + delta } : x
-          )
+          m.map((x) => (x.id === asstId ? { ...x, content: x.content + delta } : x))
         ),
-      () => {}, // onStart (server gives real message_id; UI keeps its id)
+      () => {},
       () => setBusy(false)
     );
   }
@@ -111,7 +87,6 @@ export default function ChatClient() {
     if (msg) navigator.clipboard.writeText(msg.content);
   }
 
-  // Regenerate the assistant reply IN PLACE (reuse the same bubble)
   async function regenerateAssistant(asstId: string) {
     if (!conversationId) return;
     const idx = messages.findIndex((m) => m.id === asstId);
@@ -119,27 +94,20 @@ export default function ChatClient() {
     const prevUser = messages[idx - 1];
     if (!prevUser || prevUser.role !== "user") return;
 
-    // Clear this assistant bubble and stream again
-    setMessages((m) =>
-      m.map((x) => (x.id === asstId ? { ...x, content: "" } : x))
-    );
+    setMessages((m) => m.map((x) => (x.id === asstId ? { ...x, content: "" } : x)));
     setBusy(true);
-
     await streamReply(
       conversationId,
       prevUser.content,
       (delta) =>
         setMessages((m) =>
-          m.map((x) =>
-            x.id === asstId ? { ...x, content: x.content + delta } : x
-          )
+          m.map((x) => (x.id === asstId ? { ...x, content: x.content + delta } : x))
         ),
       () => {},
       () => setBusy(false)
     );
   }
 
-  // Delete message; if it's a user message, also delete the assistant immediately after it
   function deleteMsg(id: string) {
     const idx = messages.findIndex((m) => m.id === id);
     if (idx === -1) return;
@@ -147,31 +115,26 @@ export default function ChatClient() {
 
     if (target.role === "user") {
       const next = messages[idx + 1];
-      const removeIds =
-        next && next.role === "assistant" ? [target.id, next.id] : [target.id];
+      const removeIds = next && next.role === "assistant" ? [target.id, next.id] : [target.id];
       setMessages((m) => m.filter((x) => !removeIds.includes(x.id)));
     } else {
       setMessages((m) => m.filter((x) => x.id !== id));
     }
   }
 
-  // Begin inline edit for a user bubble
   function startEdit(userId: string) {
     const msg = messages.find((m) => m.id === userId);
     if (!msg || msg.role !== "user") return;
     setEditingId(userId);
   }
 
-  // Save inline edit; reuse the SAME assistant bubble (if any) and regenerate in place
   async function saveEdit(userId: string, newText: string) {
     if (!conversationId) return;
-
     const idx = messages.findIndex((m) => m.id === userId);
     if (idx === -1 || messages[idx].role !== "user") return;
     const nextIsAssistant = messages[idx + 1]?.role === "assistant";
     const asstId = nextIsAssistant ? messages[idx + 1].id : null;
 
-    // Update user text locally; clear the assistant content (if present)
     setMessages((m) =>
       m.map((x) => {
         if (x.id === userId) return { ...x, content: newText };
@@ -181,7 +144,6 @@ export default function ChatClient() {
     );
     setEditingId(null);
 
-    // If there's an assistant bubble after it, regenerate in place
     if (asstId) {
       setBusy(true);
       await streamReply(
@@ -189,9 +151,7 @@ export default function ChatClient() {
         newText,
         (delta) =>
           setMessages((m) =>
-            m.map((x) =>
-              x.id === asstId ? { ...x, content: x.content + delta } : x
-            )
+            m.map((x) => (x.id === asstId ? { ...x, content: x.content + delta } : x))
           ),
         () => {},
         () => setBusy(false)
@@ -221,10 +181,7 @@ export default function ChatClient() {
           }
         >
           <Card className="p-0">
-            <div
-              ref={listRef}
-              className="max-h-[62vh] overflow-auto p-4 space-y-4"
-            >
+            <div ref={listRef} className="max-h-[62vh] overflow-auto p-4 space-y-4">
               {messages.map((msg) => {
                 const isEditing = editingId === msg.id && msg.role === "user";
                 return (
@@ -235,17 +192,13 @@ export default function ChatClient() {
                     editing={isEditing}
                     onEditChange={(v) =>
                       setMessages((m) =>
-                        m.map((x) =>
-                          x.id === msg.id ? { ...x, content: v } : x
-                        )
+                        m.map((x) => (x.id === msg.id ? { ...x, content: v } : x))
                       )
                     }
                     onEditKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
-                        const val = (
-                          e.target as HTMLTextAreaElement
-                        ).value.trim();
+                        const val = (e.target as HTMLTextAreaElement).value.trim();
                         if (val) void saveEdit(msg.id, val);
                         else cancelEdit();
                       }
@@ -261,9 +214,7 @@ export default function ChatClient() {
                     ) : (
                       <>
                         <CopyBtn onClick={() => copyMsg(msg.id)} />
-                        <RegenerateBtn
-                          onClick={() => regenerateAssistant(msg.id)}
-                        />
+                        <RegenerateBtn onClick={() => regenerateAssistant(msg.id)} />
                       </>
                     )}
                   </ChatMessage>

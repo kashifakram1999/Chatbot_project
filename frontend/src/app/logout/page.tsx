@@ -1,22 +1,11 @@
 "use client";
-
 import { useEffect } from "react";
 
 export default function LogoutPage() {
   useEffect(() => {
-    // Clear localStorage tokens (if you store them)
-    try {
-      localStorage.removeItem("access");
-      localStorage.removeItem("refresh");
-      localStorage.removeItem("jwt");
-    } catch {}
-
-    // Hit our API to clear HttpOnly cookies, then redirect
     fetch("/api/logout", { method: "POST" })
-      .catch(() => {}) // ignore errors
-      .finally(() => {
-        window.location.href = "/login";
-      });
+      .catch(() => {})
+      .finally(() => { window.location.href = "/login"; });
   }, []);
 
   return (
