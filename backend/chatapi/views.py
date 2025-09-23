@@ -21,7 +21,7 @@ class ConversationListCreateView(generics.ListCreateAPIView):
         conv = serializer.save(owner=self.request.user, character=character)
         return conv
 
-class ConversationDetailView(generics.RetrieveDestroyAPIView):
+class ConversationDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ConversationDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
     def get_queryset(self):

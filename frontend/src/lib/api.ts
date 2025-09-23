@@ -4,6 +4,66 @@ import { fetchAuth } from "./auth";
 // We call our Next proxies so cookies -> Authorization happens server-side.
 const API_DJ = "/api/dj";
 
+export type ConversationSummary = {
+  id: string;
+  title: string;
+  character: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export async function listConversations(): Promise<ConversationSummary[]> {
+  const r = await fetchAuth(`${API_DJ}/conversations`, { method: "GET" });
+  if (!r.ok) throw new Error("Failed to list conversations");
+  const page = await r.json();
+  const arr = Array.isArray(page) ? page : (page?.results ?? []);
+  return arr.map((c: any) => ({
+    id: String(c.id),
+    title: String(c.title ?? ""),
+    character: String(c.character ?? "Bronn"),
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+  }));
+}
+
+export async function createConversation(character = "Bronn"): Promise<{ id: string } & ConversationSummary> {
+  const r = await fetchAuth(`${API_DJ}/conversations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ character }),
+  });
+  if (!r.ok) throw new Error("Failed to create conversation");
+  const c = await r.json();
+  return {
+    id: String(c.id),
+    title: String(c.title ?? ""),
+    character: String(c.character ?? character),
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+  };
+}
+
+export async function updateConversationTitle(id: string, title: string): Promise<void> {
+  async function attempt(url: string) {
+    const res = await fetchAuth(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    return res;
+  }
+
+  let r = await attempt(`${API_DJ}/conversations/${id}`);
+  if (!r.ok && (r.status === 404 || r.status === 405)) {
+    r = await attempt(`${API_DJ}/conversations/${id}/`);
+  }
+  if (!r.ok) {
+    let msg = "Failed to update title";
+    try { const j = await r.json(); msg = j?.detail || msg; } catch {}
+    throw new Error(msg);
+  }
+}
+
 export async function getOrCreateConversation(character = "Bronn"): Promise<{ id: string }> {
   // list existing
   let r = await fetchAuth(`${API_DJ}/conversations`, { method: "GET" });
