@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
+import { cookies as getCookies } from "next/headers";
 
 const DJANGO_BASE = process.env.NEXT_PUBLIC_API_BASE!.replace(/\/+$/, "");
 const IS_PROD = process.env.NODE_ENV === "production";
 
 export async function POST() {
+  const cookies = await getCookies();
+  const refresh = cookies.get("refresh")?.value || "";
+
+  // SimpleJWT expects the refresh token in JSON body: { refresh: "..." }
   const upstream = await fetch(`${DJANGO_BASE}/auth/refresh`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh }),
     credentials: "include" as any,
   });
 

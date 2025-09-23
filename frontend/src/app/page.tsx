@@ -17,6 +17,9 @@ export default function HomePage() {
           <Link href="/chat">
             <Button className="px-5">Start Chatting</Button>
           </Link>
+          <Link href="/chats">
+            <Button variant="ghost">All Chats</Button>
+          </Link>
           <Link href="/login">
             <Button variant="ghost">Sign in</Button>
           </Link>

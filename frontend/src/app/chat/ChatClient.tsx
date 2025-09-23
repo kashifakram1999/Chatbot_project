@@ -7,7 +7,7 @@ import ChatMessage from "@/components/Chat/ChatMessage";
 import ChatComposer from "@/components/Chat/ChatComposer";
 import RightPanel from "@/components/Chat/RightPanel";
 import { CopyBtn, EditBtn, DeleteBtn, RegenerateBtn } from "@/components/Chat/MessageActions";
-import { getOrCreateConversation, createUserMessage, streamReply, listMessages } from "@/lib/api";
+import { getOrCreateConversation, createUserMessage, streamReply, listMessages, createConversation } from "@/lib/api";
 
 type Role = "user" | "assistant";
 type Msg = { id: string; role: Role; content: string };
@@ -41,7 +41,22 @@ export default function ChatClient() {
   // Ensure conversation exists and hydrate from server if possible
   React.useEffect(() => {
     (async () => {
-      const conv = await getOrCreateConversation("Bronn");
+      const params = new URLSearchParams(window.location.search);
+      const pickId = params.get("c");
+      const forceNew = params.get("new") === "1";
+
+      let conv: { id: string };
+      if (pickId) {
+        conv = { id: pickId };
+      } else if (forceNew) {
+        conv = await createConversation("Bronn");
+        // clean up the query string so refreshes don't keep creating
+        const url = new URL(window.location.href);
+        url.searchParams.delete("new");
+        window.history.replaceState({}, "", url.toString());
+      } else {
+        conv = await getOrCreateConversation("Bronn");
+      }
       setConversationId(conv.id);
 
       // try to load history from backend; if endpoint doesn't exist, this returns []
