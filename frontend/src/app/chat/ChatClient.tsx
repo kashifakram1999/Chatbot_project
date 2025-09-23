@@ -27,6 +27,8 @@ export default function ChatClient() {
   const [busy, setBusy] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
+  // Guard to prevent double execution under React Strict Mode in dev
+  const initRef = React.useRef(false);
 
   // one-time: purge legacy localStorage persistence
   React.useEffect(() => {
@@ -40,22 +42,25 @@ export default function ChatClient() {
 
   // Ensure conversation exists and hydrate from server if possible
   React.useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
     (async () => {
       const params = new URLSearchParams(window.location.search);
       const pickId = params.get("c");
       const forceNew = params.get("new") === "1";
+      const characterName = (params.get("character") || "Bronn").trim() || "Bronn";
 
       let conv: { id: string };
       if (pickId) {
         conv = { id: pickId };
       } else if (forceNew) {
-        conv = await createConversation("Bronn");
+        conv = await createConversation(characterName);
         // clean up the query string so refreshes don't keep creating
         const url = new URL(window.location.href);
         url.searchParams.delete("new");
         window.history.replaceState({}, "", url.toString());
       } else {
-        conv = await getOrCreateConversation("Bronn");
+        conv = await getOrCreateConversation(characterName);
       }
       setConversationId(conv.id);
 

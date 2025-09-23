@@ -27,8 +27,8 @@ export default function SiteNavbar({ user: _serverUser }: { user?: any } = {}) {
           <AuthNav />
         ) : (
           <div className="flex items-center gap-2">
-            <a href="/login" className="badge hover:opacity-90">Sign in</a>
-            <a href="/register" className="badge hover:opacity-90">Create account</a>
+            <a href="/login" className="btn btn-ghost px-3 py-1.5 text-xs">Sign in</a>
+            <a href="/register" className="btn btn-primary px-3 py-1.5 text-xs">Create account</a>
           </div>
         )}
       </div>

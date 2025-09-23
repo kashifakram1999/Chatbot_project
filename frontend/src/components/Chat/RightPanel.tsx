@@ -7,7 +7,7 @@ const CHARACTER = {
   voice: "dry humor",
   style: "concise",
   edge: "pragmatic",
-  avatarSrc: "/images/images (1).jpeg", // TODO: replace with your image path
+  avatarSrc: "/images/bronn.jpeg", 
   intro:
     "A sellsword with a sharp tongue and sharper instincts. Bronn keeps things practical, skips fluff, and focuses on what gets results.",
 };
