@@ -53,8 +53,9 @@ cd frontend
 npm install
 ```
 
-2) Environment variable (create `.env.local` in `frontend/`):
+2) Environment variables (optional):
 ```bash
+# Only needed if you bypass the built-in Next.js proxy and call the Django API directly
 NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000/api
 ```
 
@@ -72,18 +73,30 @@ Open `http://localhost:3000`.
 - Character-aware prompting with optional KB + style
 
 ## API Overview (Backend)
-- POST `/api/auth/register` → `{ access, refresh, user }`
-- POST `/api/auth/login` → `{ access, refresh, user }`
-- POST `/api/auth/refresh`
-- POST `/api/auth/google` (requires `GOOGLE_OAUTH_CLIENT_ID`)
-- GET  `/api/me` (requires `Authorization: Bearer <access>`)
+Base path: `/api/`
 
-- GET/POST `/api/conversations`
-- GET/DELETE `/api/conversations/<uuid>`
-- GET `/api/conversations/<uuid>/messages?order=asc|desc&page_size=50`
-- POST `/api/conversations/<uuid>/messages/create` `{ content }`
+Auth
+- POST `/auth/register` → `{ access, refresh, user }`
+- POST `/auth/login` → `{ access, refresh, user }`
+- POST `/auth/refresh` (SimpleJWT refresh)
+- POST `/auth/google` (requires `GOOGLE_OAUTH_CLIENT_ID`)
+- GET  `/me` (requires `Authorization: Bearer <access>`)
 
-- POST `/api/chat/stream` `{ conversation_id, prompt, create_user_message }` (SSE)
+Conversations & Messages
+- GET `/conversations` → paginated list (owned by requester)
+- POST `/conversations` `{ character? }` → create
+- GET `/conversations/<uuid>` → details
+- PATCH `/conversations/<uuid>` → update (e.g., `title`)
+- DELETE `/conversations/<uuid>` → delete
+- GET `/conversations/<uuid>/messages?order=asc|desc&page_size=50` → paginated messages
+- POST `/conversations/<uuid>/messages/create` `{ content }` → create a user message
+
+Search
+- GET `/search?q=...&limit=20` → `{ conversations: [...], messages: [...] }`
+
+Chat Streaming (SSE)
+- POST `/chat/stream` `{ conversation_id, prompt, create_user_message }`
+  - Emits events: `start`, multiple `token`, and `end`
 
 ## Streaming Flow
 - Client posts to `/api/chat/stream` with JWT in `Authorization` header.
@@ -115,6 +128,23 @@ If these files are missing, the backend falls back to a strict in-character syst
 - `frontend/` Next.js app (chat UI, auth pages, streaming client)
 - `notebooks/` Experiments
 
+## Environment Variables Reference
+
+Backend (`backend/.env`):
+- `DJANGO_SECRET_KEY`: Django secret key (use a strong unique value in production)
+- `DEBUG`: `True`/`False`
+- `CORS_FRONTEND`: Frontend origin, e.g. `http://localhost:3000`
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `OPENAI_CHAT_MODEL`: e.g. `gpt-4o-mini`
+- `OPENAI_TEMPERATURE`: e.g. `0.3`
+- `OPENAI_MAX_OUTPUT_TOKENS`: e.g. `1024`
+- `GOOGLE_OAUTH_CLIENT_ID`: Optional, for Google login
+- `BRONN_KB_PATH`: Optional, path to persona KB JSONL
+- `BRONN_STYLE_PATH`: Optional, path to persona style YAML
+
+Frontend (`frontend/.env.local`):
+- `NEXT_PUBLIC_API_BASE`: Optional. Only required if you call the Django API directly from the browser instead of via the built-in Next proxy at `/api/dj` and `/api/chat`.
+
 ## Scripts & Troubleshooting
 - If streaming appears stalled, check:
   - `OPENAI_API_KEY` validity and network egress
@@ -124,6 +154,3 @@ If these files are missing, the backend falls back to a strict in-character syst
 
 ## License
 Proprietary or add your preferred license.
-# Chatbot_project
-# Chatbot_project
-# Chatbot_project
