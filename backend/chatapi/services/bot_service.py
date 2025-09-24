@@ -1,6 +1,6 @@
 from __future__ import annotations
 import os, logging
-from typing import Dict, Generator, Iterable, List, Optional
+from typing import Dict, Generator, Iterable, List, Optional, Tuple
 from openai import OpenAI
 from django.conf import settings
 
@@ -11,27 +11,37 @@ except Exception:
 
 log = logging.getLogger(__name__)
 
+# ---------- OpenAI config ----------
 OPENAI_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.3"))
 OPENAI_MAX_OUTPUT_TOKENS = int(os.getenv("OPENAI_MAX_OUTPUT_TOKENS", "1024"))
 
+# ---------- Persona asset config ----------
 BRONN_KB_PATH = os.getenv("BRONN_KB_PATH", os.path.join(settings.BASE_DIR, "..", "chatbot", "bronns_kb.jsonl"))
 BRONN_STYLE_PATH = os.getenv("BRONN_STYLE_PATH", os.path.join(settings.BASE_DIR, "..", "chatbot", "bronns_style.yml"))
+TYRION_KB_PATH = os.getenv("TYRION_KB_PATH", os.path.join(settings.BASE_DIR, "..", "chatbot", "tyrion_kb.jsonl"))
+TYRION_STYLE_PATH = os.getenv("TYRION_STYLE_PATH", os.path.join(settings.BASE_DIR, "..", "chatbot", "tyrion_style.yml"))
+
+ASSET_MAP: Dict[str, Tuple[str, str]] = {
+    "bronn": (BRONN_KB_PATH, BRONN_STYLE_PATH),
+    "tyrion": (TYRION_KB_PATH, TYRION_STYLE_PATH),
+}
 
 _client: Optional[OpenAI] = None
 _assets_checked = False
 
-def _check_assets_once():
+def _check_assets_once() -> None:
+    """Log presence of persona assets exactly once."""
     global _assets_checked
     if _assets_checked:
         return
-    kb_ok = os.path.exists(BRONN_KB_PATH)
-    style_ok = os.path.exists(BRONN_STYLE_PATH)
-    if not kb_ok or not style_ok:
-        log.warning("Persona assets missing: KB(%s)=%s, STYLE(%s)=%s",
-                    BRONN_KB_PATH, kb_ok, BRONN_STYLE_PATH, style_ok)
-    else:
-        log.info("Persona assets OK: kb=%s, style=%s", BRONN_KB_PATH, BRONN_STYLE_PATH)
+    for name, (kb, style) in ASSET_MAP.items():
+        kb_ok, style_ok = os.path.exists(kb), os.path.exists(style)
+        if not kb_ok or not style_ok:
+            log.warning("Persona assets missing for %s: KB(%s)=%s, STYLE(%s)=%s",
+                        name, kb, kb_ok, style, style_ok)
+        else:
+            log.info("Persona assets OK for %s: kb=%s, style=%s", name, kb, style)
     _assets_checked = True
 
 def _client_singleton() -> OpenAI:
@@ -41,6 +51,8 @@ def _client_singleton() -> OpenAI:
         log.info("OpenAI ready: model=%s, temp=%s", OPENAI_MODEL, OPENAI_TEMPERATURE)
         _check_assets_once()
     return _client
+
+# ---------- Public API used by views ----------
 
 def stream_tokens(prompt: str, *, persona: Optional[str] = None, history: Optional[Iterable[Dict[str, str]]] = None) -> Generator[str, None, None]:
     messages = _assemble_messages(prompt, persona=(persona or "Bronn"), history=history)
@@ -77,6 +89,8 @@ def complete_once(prompt: str, *, persona: Optional[str] = None, history: Option
     )
     return (resp.choices[0].message.content or "").strip()
 
+# ---------- Message assembly ----------
+
 def _assemble_messages(prompt: str, *, persona: str, history: Optional[Iterable[Dict[str, str]]]) -> List[Dict[str, str]]:
     msgs: List[Dict[str, str]] = []
     msgs.append({"role": "system", "content": _persona_system_prompt(persona, prompt)})
@@ -86,17 +100,20 @@ def _assemble_messages(prompt: str, *, persona: str, history: Optional[Iterable[
     return msgs
 
 def _persona_system_prompt(persona: str, latest_user_prompt: str) -> str:
+    """Return the system prompt for the given persona, selecting the right assets."""
+    persona_key = (persona or "Bronn").strip().lower()
+    kb_path, style_path = ASSET_MAP.get(persona_key, ASSET_MAP["bronn"])
     if build_system_prompt:
         try:
             return build_system_prompt(
                 character=persona,
                 user_query=latest_user_prompt,  # may include [[OOC]]
-                kb_path=BRONN_KB_PATH,
-                style_path=BRONN_STYLE_PATH,
+                kb_path=kb_path,
+                style_path=style_path,
                 k=5,
             )
         except Exception as e:
-            log.warning("build_system_prompt failed (%s); falling back to strict IC.", e)
+            log.warning("build_system_prompt failed for %s (%s); falling back to strict IC.", persona, e)
     # STRICT IC fallback (never generic assistant)
     return (
         f"You are {persona}. Speak strictly in-character: terse, blunt, sardonic. "

@@ -69,9 +69,11 @@ export async function getOrCreateConversation(character = "Bronn"): Promise<{ id
   let r = await fetchAuth(`${API_DJ}/conversations`, { method: "GET" });
   if (!r.ok) throw new Error("Failed to list conversations");
   const page = await r.json();
-  if (page?.results?.length) return { id: page.results[0].id };
+  const results: any[] = Array.isArray(page) ? page : (page?.results ?? []);
+  const match = results.find((c) => String(c.character ?? "") === character);
+  if (match) return { id: String(match.id) };
 
-  // create new
+  // create new for this character
   r = await fetchAuth(`${API_DJ}/conversations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -79,6 +81,19 @@ export async function getOrCreateConversation(character = "Bronn"): Promise<{ id
   });
   if (!r.ok) throw new Error("Failed to create conversation");
   return await r.json();
+}
+
+export async function getConversation(id: string): Promise<ConversationSummary> {
+  const r = await fetchAuth(`${API_DJ}/conversations/${id}`, { method: "GET" });
+  if (!r.ok) throw new Error("Failed to get conversation");
+  const c = await r.json();
+  return {
+    id: String(c.id),
+    title: String(c.title ?? ""),
+    character: String(c.character ?? "Bronn"),
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+  };
 }
 
 export async function createUserMessage(conversationId: string, content: string) {

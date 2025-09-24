@@ -1,65 +1,51 @@
 "use client";
 
 import * as React from "react";
-
-const CHARACTER = {
-  name: "Bronn of the Blackwater",
-  voice: "dry humor",
-  style: "concise",
-  edge: "pragmatic",
-  avatarSrc: "/images/bronn.jpeg", 
-  intro:
-    "A sellsword with a sharp tongue and sharper instincts. Bronn keeps things practical, skips fluff, and focuses on what gets results.",
-};
+import { useSearchParams } from "next/navigation";
+import { getCharacterByName } from "@/lib/characters";
 
 export default function RightPanel() {
+  const params = useSearchParams();
+  const name = (params.get("character") || "Bronn").trim() || "Bronn";
+  const character = getCharacterByName(name) || {
+    name,
+    image: "/images/Bronn.jpeg",
+    sections: [],
+  } as any;
+
   return (
     <aside className="card p-4 sticky top-6">
-      {/* Header */}
       <h3 className="text-sm font-semibold">Character</h3>
-      <p className="mt-1 text-sm">{CHARACTER.name}</p>
+      <p className="mt-1 text-sm">{character.name}</p>
 
       <div className="hr-muted my-4" />
 
-      {/* Traits */}
-      <div className="space-y-2">
-        <div className="badge">Voice: {CHARACTER.voice}</div>
-        <div className="badge">Style: {CHARACTER.style}</div>
-        <div className="badge">Edge: {CHARACTER.edge}</div>
-      </div>
-
-      {/* Avatar */}
       <div className="mt-4 flex items-center gap-3">
         <img
-          src={CHARACTER.avatarSrc}
-          alt={`${CHARACTER.name} avatar`}
+          src={character.image}
+          alt={`${character.name} avatar`}
           className="w-[80px] h-[80px] rounded-full items-center]"
         />
       </div>
 
-      {/* Intro */}
-      <p className="mt-4 text-sm text-muted leading-6">{CHARACTER.intro}</p>
+      <p className="mt-4 text-sm text-muted leading-6">
+        Chatting with {character.name}. Ask naturally; responses reflect their persona.
+      </p>
 
       <div className="hr-muted my-4" />
 
-      {/* How to use */}
       <h4 className="text-sm font-semibold">How to use this chat</h4>
       <ul className="mt-2 text-sm text-muted space-y-2 leading-6">
         <li>
-          <b>Normal mode:</b> Ask naturally. Bronn will keep answers short,
-          actionable, and no-nonsense.
+          <b>Normal mode:</b> Ask naturally. Answers stay concise and actionable.
         </li>
         <li>
-          <b>OCC mode (Operator Command Channel):</b> Prefix with{" "}
-          <code className="px-1 py-0.5 rounded bg-[var(--panel)] border border-[var(--line)]">
-            /occ
-          </code>{" "}
-          for surgical, step-by-step outputs (checklists, commands, exact
-          sequences). Great when you want execution-ready instructions.
+          <b>OCC mode (Operator Command Channel):</b> Prefix with
+          <code className="px-1 py-0.5 rounded bg-[var(--panel)] border border-[var(--line)] ml-1">/occ</code>
+          for step-by-step outputs.
         </li>
         <li>
-          Tip: State constraints (time, tools, limits). Bronn optimizes for the
-          fastest viable path.
+          Tip: State constraints (time, tools, limits) for better responses.
         </li>
       </ul>
     </aside>

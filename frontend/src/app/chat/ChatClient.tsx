@@ -7,7 +7,7 @@ import ChatMessage from "@/components/Chat/ChatMessage";
 import ChatComposer from "@/components/Chat/ChatComposer";
 import RightPanel from "@/components/Chat/RightPanel";
 import { CopyBtn, EditBtn, DeleteBtn, RegenerateBtn } from "@/components/Chat/MessageActions";
-import { getOrCreateConversation, createUserMessage, streamReply, listMessages, createConversation } from "@/lib/api";
+import { getOrCreateConversation, createUserMessage, streamReply, listMessages, createConversation, getConversation } from "@/lib/api";
 
 type Role = "user" | "assistant";
 type Msg = { id: string; role: Role; content: string };
@@ -17,11 +17,12 @@ const LEGACY_STORAGE_KEY = "bronn_chat_v1";
 
 export default function ChatClient() {
   const [conversationId, setConversationId] = React.useState<string | null>(null);
+  const [character, setCharacter] = React.useState<string>("Bronn");
   const [messages, setMessages] = React.useState<Msg[]>([
     {
       id: "seed-hello",
       role: "assistant",
-      content: "A sellsword’s wit is worth as much as his sword. How can I help?",
+      content: "How can I help?",
     },
   ]);
   const [busy, setBusy] = React.useState(false);
@@ -49,10 +50,21 @@ export default function ChatClient() {
       const pickId = params.get("c");
       const forceNew = params.get("new") === "1";
       const characterName = (params.get("character") || "Bronn").trim() || "Bronn";
+      setCharacter(characterName);
 
       let conv: { id: string };
       if (pickId) {
         conv = { id: pickId };
+        try {
+          const meta = await getConversation(pickId);
+          if (meta?.character) {
+            setCharacter(meta.character);
+            // ensure URL carries character for subsequent renders/shares
+            const url = new URL(window.location.href);
+            url.searchParams.set("character", meta.character);
+            window.history.replaceState({}, "", url.toString());
+          }
+        } catch {}
       } else if (forceNew) {
         conv = await createConversation(characterName);
         // clean up the query string so refreshes don't keep creating
@@ -193,7 +205,7 @@ export default function ChatClient() {
     <>
       <div className="space-y-4">
         <Section
-          title="Bronn Chat"
+          title={`${character} Chat`}
           actions={
             <button className="badge hover:opacity-80" onClick={clearAll}>
               Clear
@@ -209,6 +221,7 @@ export default function ChatClient() {
                     key={msg.id}
                     role={msg.role}
                     content={msg.content}
+                    assistantInitial={character?.[0] ?? "B"}
                     editing={isEditing}
                     onEditChange={(v) =>
                       setMessages((m) =>
@@ -242,14 +255,14 @@ export default function ChatClient() {
               })}
               {busy && (
                 <div className="text-xs text-muted px-4 pb-4 animate-pulse-soft">
-                  Bronn is thinking…
+                  {character} is thinking…
                 </div>
               )}
             </div>
           </Card>
         </Section>
 
-        <ChatComposer onSend={handleSend} />
+        <ChatComposer onSend={handleSend} character={character} />
       </div>
 
       <div className="hidden lg:block">
