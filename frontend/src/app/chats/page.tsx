@@ -7,19 +7,22 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function AllChatsPage() {
   const [items, setItems] = React.useState<Array<{ id: string; title: string; character: string }>>([]);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<string>("");
   const [error, setError] = React.useState<string | null>(null);
+  const search = useSearchParams();
+  const character = (search.get("character") || "").trim();
   React.useEffect(() => {
     listConversations().then(setItems).catch(() => setItems([]));
   }, []);
 
   return (
     <RequireAuth>
-      <Section title="All Chats" actions={<Link href="/chat?new=1"><Button size="sm">New Chat</Button></Link>}>
+      <Section title={character ? `${character} Chats` : "All Chats"} actions={<Link href={`/chat?new=1${character ? `&character=${encodeURIComponent(character)}` : ""}`}><Button size="sm">New Chat</Button></Link>}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {error ? (
             <Card>
@@ -30,7 +33,7 @@ export default function AllChatsPage() {
               <CardBody className="p-6 text-muted">No conversations yet.</CardBody>
             </Card>
           ) : (
-            items.map((c) => (
+            (character ? items.filter((x) => x.character === character) : items).map((c) => (
               <Card key={c.id}>
                 <CardBody className="p-5 space-y-2">
                   <div className="text-sm text-muted">{c.character}</div>
@@ -66,7 +69,7 @@ export default function AllChatsPage() {
                       {c.title || `${c.character} — ${c.id}`}
                     </div>
                   )}
-                  <Link href={`/chat?c=${encodeURIComponent(c.id)}`} className="inline-block">
+                  <Link href={`/chat?c=${encodeURIComponent(c.id)}&character=${encodeURIComponent(c.character)}`} className="inline-block">
                     <Button size="sm" className="mt-2">Open</Button>
                   </Link>
                 </CardBody>

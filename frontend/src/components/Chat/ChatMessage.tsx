@@ -10,6 +10,7 @@ export default function ChatMessage({
   editing = false,
   onEditChange,
   onEditKeyDown,
+  assistantInitial = "B",
 }: {
   role: ChatRole;
   content: string;
@@ -17,6 +18,7 @@ export default function ChatMessage({
   editing?: boolean; // when true, show textarea (user message)
   onEditChange?: (val: string) => void;
   onEditKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  assistantInitial?: string;
 }) {
   const isUser = role === "user";
   return (
@@ -29,7 +31,7 @@ export default function ChatMessage({
       <div
         className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}
       >
-        {!isUser && <Avatar fallback="B" />}
+        {!isUser && <Avatar fallback={assistantInitial} />}
         <div
           className={cn(
             "max-w-[75%] rounded-2xl border px-4 py-3 shadow-soft",

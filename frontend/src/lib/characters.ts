@@ -47,3 +47,7 @@ export function getCharacterBySlug(slug: string): CharacterInfo | undefined {
   return CHARACTERS.find((c) => c.slug === slug);
 }
 
+export function getCharacterByName(name: string): CharacterInfo | undefined {
+  return CHARACTERS.find((c) => c.name === name);
+}
+

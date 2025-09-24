@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/Button";
 
 export default function ChatComposer({
   onSend,
+  character = "Bronn",
 }: {
   onSend: (text: string) => void;
+  character?: string;
 }) {
   const [text, setText] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -34,7 +36,7 @@ export default function ChatComposer({
             }
           }}
           className="input min-h-10 resize-y"
-          placeholder="Ask Bronn something…"
+          placeholder={`Ask ${character} something…`}
         />
         <Button onClick={submit} className="shrink-0">
           Send
