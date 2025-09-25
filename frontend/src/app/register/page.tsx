@@ -45,7 +45,7 @@ export default function RegisterPage() {
         throw new Error(msg);
       }
       // Cookies set server-side → go to chat (or login if backend requires email verify)
-      window.location.href = "/chat";
+      window.location.href = "/";
     } catch (err: any) {
       setError(err.message || "Something went wrong");
     } finally { setLoading(false); }

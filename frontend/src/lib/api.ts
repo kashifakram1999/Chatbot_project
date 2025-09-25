@@ -96,6 +96,25 @@ export async function getConversation(id: string): Promise<ConversationSummary> 
   };
 }
 
+export async function deleteConversation(id: string): Promise<void> {
+  async function attempt(url: string) {
+    return await fetchAuth(url, { method: "DELETE" });
+  }
+  let r = await attempt(`${API_DJ}/conversations/${id}`);
+  if (!r.ok && (r.status === 404 || r.status === 405)) {
+    r = await attempt(`${API_DJ}/conversations/${id}/`);
+  }
+  if (!r.ok) throw new Error("Failed to delete conversation");
+}
+
+export async function deleteConversationsByCharacter(character: string): Promise<number> {
+  const url = `${API_DJ}/conversations/bulk-delete${character ? `?character=${encodeURIComponent(character)}` : ""}`;
+  const r = await fetchAuth(url, { method: "DELETE" });
+  if (!r.ok) throw new Error("Failed to delete conversations");
+  const j = await r.json().catch(() => ({}));
+  return Number(j?.deleted ?? 0);
+}
+
 export async function createUserMessage(conversationId: string, content: string) {
   const r = await fetchAuth(`${API_DJ}/conversations/${conversationId}/messages/create`, {
     method: "POST",

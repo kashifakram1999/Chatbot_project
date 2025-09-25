@@ -3,7 +3,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .auth_views import RegisterView, LoginView, MeView, GoogleAuthView
 from .views import (
     ConversationListCreateView, ConversationDetailView,
-    ConversationMessagesView, CreateUserMessageView
+    ConversationMessagesView, CreateUserMessageView,
+    ConversationBulkDeleteView,
 )
 from .stream_views import chat_stream_view
 from .search_views import SearchView
@@ -21,6 +22,7 @@ urlpatterns = [
     path("conversations/<uuid:pk>",              ConversationDetailView.as_view()),
     path("conversations/<uuid:pk>/messages",     ConversationMessagesView.as_view()),
     path("conversations/<uuid:pk>/messages/create", CreateUserMessageView.as_view()),
+    path("conversations/bulk-delete",            ConversationBulkDeleteView.as_view()),
 
     # Streaming
     path("chat/stream", chat_stream_view),

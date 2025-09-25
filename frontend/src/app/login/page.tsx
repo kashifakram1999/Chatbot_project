@@ -43,7 +43,7 @@ export default function LoginPage() {
         try { msg = (await res.json())?.detail || msg; } catch {}
         throw new Error(msg);
       }
-      window.location.href = "/chat";
+      window.location.href = "/";
     } catch (err: any) {
       setError(err.message || "Something went wrong");
     } finally {

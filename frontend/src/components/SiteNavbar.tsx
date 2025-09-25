@@ -19,7 +19,7 @@ export default function SiteNavbar({ user: _serverUser }: { user?: any } = {}) {
     <nav className="sticky top-0 z-50 backdrop-blur border-b border-[var(--border)]/70 bg-card/75">
       <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
         <a href="/" className="font-semibold tracking-wide">
-          Bronn <span className="text-[var(--accent)]">Chat</span>
+          Throne<span className="text-[var(--accent)]">Talk</span>
         </a>
         {authed === null ? (
           <div />
