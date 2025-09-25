@@ -1,5 +1,6 @@
 from rest_framework import generics, permissions, pagination
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, ConversationDetailSerializer, MessageSerializer
@@ -50,3 +51,16 @@ class CreateUserMessageView(generics.CreateAPIView):
             conv.title = (prefix + preview).strip()
         conv.save(update_fields=["title","updated_at"])
         return Response(MessageSerializer(msg).data, status=201)
+
+
+class ConversationBulkDeleteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request):
+        qs = Conversation.objects.filter(owner=request.user)
+        character = (request.query_params.get("character") or "").strip()
+        if character:
+            qs = qs.filter(character=character)
+        count = qs.count()
+        qs.delete()
+        return Response({"deleted": count})

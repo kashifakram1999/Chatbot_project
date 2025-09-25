@@ -20,3 +20,9 @@ class Message(models.Model):
     content = models.TextField(blank=True, default="")
     meta = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    class Meta:
+        indexes = [models.Index(fields=["conversation", "created_at"])]

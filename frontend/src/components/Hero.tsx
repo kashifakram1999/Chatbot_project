@@ -34,7 +34,7 @@ export default function Hero() {
     return () => { mounted = false; };
   }, []);
 
-  const enterHref = lastConversationId ? `/chat?c=${encodeURIComponent(lastConversationId)}` : "/chat?new=1";
+  const enterHref = "/characters";
 
   return (
     <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
