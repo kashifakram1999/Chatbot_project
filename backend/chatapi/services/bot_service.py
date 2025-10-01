@@ -17,14 +17,28 @@ OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.3"))
 OPENAI_MAX_OUTPUT_TOKENS = int(os.getenv("OPENAI_MAX_OUTPUT_TOKENS", "1024"))
 
 # ---------- Persona asset config ----------
-BRONN_KB_PATH = os.getenv("BRONN_KB_PATH", os.path.join(settings.BASE_DIR, "..", "chatbot", "bronns_kb.jsonl"))
-BRONN_STYLE_PATH = os.getenv("BRONN_STYLE_PATH", os.path.join(settings.BASE_DIR, "..", "chatbot", "bronns_style.yml"))
-TYRION_KB_PATH = os.getenv("TYRION_KB_PATH", os.path.join(settings.BASE_DIR, "..", "chatbot", "tyrion_kb.jsonl"))
-TYRION_STYLE_PATH = os.getenv("TYRION_STYLE_PATH", os.path.join(settings.BASE_DIR, "..", "chatbot", "tyrion_style.yml"))
+def _get_asset_paths(character: str) -> Tuple[str, str]:
+    """Get KB and style paths for a character."""
+    base_dir = os.path.join(settings.BASE_DIR, "..", "chatbot")
+    kb_path = os.path.join(base_dir, f"{character}_kb.jsonl")
+    style_path = os.path.join(base_dir, f"{character}_style.yml")
+    return kb_path, style_path
 
 ASSET_MAP: Dict[str, Tuple[str, str]] = {
-    "bronn": (BRONN_KB_PATH, BRONN_STYLE_PATH),
-    "tyrion": (TYRION_KB_PATH, TYRION_STYLE_PATH),
+    "bronn": _get_asset_paths("bronn"),
+    "Bronn": _get_asset_paths("bronn"),
+    "tyrion lannister": _get_asset_paths("tyrion"),
+    "Tyrion Lannister": _get_asset_paths("tyrion"),
+    "tyrion": _get_asset_paths("tyrion"),
+    "Tyrion": _get_asset_paths("tyrion"),
+    "arya stark": _get_asset_paths("arya"),
+    "Arya Stark": _get_asset_paths("arya"),
+    "daenerys targaryen": _get_asset_paths("daenerys"),
+    "Daenerys Targaryen": _get_asset_paths("daenerys"),
+    "jon snow": _get_asset_paths("jon"),
+    "Jon Snow": _get_asset_paths("jon"),
+    "cersei lannister": _get_asset_paths("cersei"),
+    "Cersei Lannister": _get_asset_paths("cersei"),
 }
 
 _client: Optional[OpenAI] = None
@@ -101,8 +115,9 @@ def _assemble_messages(prompt: str, *, persona: str, history: Optional[Iterable[
 
 def _persona_system_prompt(persona: str, latest_user_prompt: str) -> str:
     """Return the system prompt for the given persona, selecting the right assets."""
-    persona_key = (persona or "Bronn").strip().lower()
-    kb_path, style_path = ASSET_MAP.get(persona_key, ASSET_MAP["bronn"])
+    persona_key = (persona or "Bronn").strip()
+    # Try exact match first, then lowercase match
+    kb_path, style_path = ASSET_MAP.get(persona_key, ASSET_MAP.get(persona_key.lower(), ASSET_MAP["bronn"]))
     if build_system_prompt:
         try:
             return build_system_prompt(
