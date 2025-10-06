@@ -22,7 +22,8 @@ export function Input({
   id,
   ...rest
 }: BaseProps & React.InputHTMLAttributes<HTMLInputElement>) {
-  const inputId = id || React.useId();
+  const generatedId = React.useId();
+  const inputId = id ?? generatedId;
   const invalid = Boolean(error);
 
   return (
@@ -44,8 +45,8 @@ export function Input({
           id={inputId}
           className={cn(
             "input border-0 bg-transparent focus:shadow-none",
-            left && "pl-9",
-            right && "pr-10",
+            left ? "pl-9" : undefined,
+            right ? "pr-10" : undefined,
             className
           )}
           aria-invalid={invalid || undefined}

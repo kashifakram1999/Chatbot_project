@@ -60,10 +60,10 @@ const config: Config = {
       },
       keyframes: {
         "fade-up": {
-          "0%": { opacity: 0, transform: "translateY(8px)" },
-          "100%": { opacity: 1, transform: "translateY(0)" },
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        "pulse-soft": { "0%,100%": { opacity: 0.65 }, "50%": { opacity: 1 } },
+        "pulse-soft": { "0%,100%": { opacity: "0.65" }, "50%": { opacity: "1" } },
       },
       animation: {
         "fade-up": "fade-up .25s ease-out both",

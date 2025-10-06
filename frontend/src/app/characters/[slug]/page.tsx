@@ -5,10 +5,11 @@ import { getCharacterBySlug } from "@/lib/characters";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 
-type Props = { params: { slug: string } };
+type CharacterPageProps = { params: Promise<{ slug: string }> };
 
-export default function CharacterPage({ params }: Props) {
-  const character = getCharacterBySlug(params.slug);
+export default async function CharacterPage({ params }: CharacterPageProps) {
+  const { slug } = await params;
+  const character = getCharacterBySlug(slug);
   if (!character) return notFound();
 
   return (
@@ -60,5 +61,4 @@ export default function CharacterPage({ params }: Props) {
     </div>
   );
 }
-
 
