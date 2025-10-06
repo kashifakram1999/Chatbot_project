@@ -43,8 +43,12 @@ TIME_ZONE = "Asia/Karachi"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "static"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
 
 # DRF / JWT
 REST_FRAMEWORK = {
@@ -55,6 +59,16 @@ REST_FRAMEWORK = {
 # CORS
 CORS_ALLOWED_ORIGINS = [os.getenv("CORS_FRONTEND","http://localhost:3000")]
 CORS_ALLOW_CREDENTIALS = True
+
+ALLOWED_HOSTS = [
+    "thronetalk.pythonanywhere.com",
+    "localhost", "127.0.0.1"
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://thronetalk.pythonanywhere.com",
+    "https://thronetalk.vercel.app",
+]
 
 # Google
 GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID","")
