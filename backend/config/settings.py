@@ -61,12 +61,12 @@ CORS_ALLOWED_ORIGINS = [os.getenv("CORS_FRONTEND","http://localhost:3000")]
 CORS_ALLOW_CREDENTIALS = True
 
 ALLOWED_HOSTS = [
-    "thronetalk.pythonanywhere.com",
+    "mkakram.pythonanywhere.com",
     "localhost", "127.0.0.1"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://thronetalk.pythonanywhere.com",
+    "NEXT_PUBLIC_API_BASE=https://mkakram.pythonanywhere.com",
     "https://thronetalk.vercel.app",
 ]
 
